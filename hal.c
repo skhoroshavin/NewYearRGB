@@ -11,9 +11,7 @@ void hal_init()
 	CLKPR = 0x80;
 	CLKPR = 0x00;
 
-	led_red_init();
-	led_green_init();
-	led_blue_init();
+	led_rgb_init();
 
 	dbg_init();
 
