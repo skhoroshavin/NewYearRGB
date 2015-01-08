@@ -15,6 +15,8 @@ void hal_init()
 	led_green_init();
 	led_blue_init();
 
+	dbg_init();
+
 	soft_timer_init();
 }
 

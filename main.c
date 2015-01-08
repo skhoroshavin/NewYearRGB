@@ -1,17 +1,27 @@
 
 #include "hal.h"
 
-volatile uint8_t red   = 0;
-volatile uint8_t green = 0;
-volatile uint8_t blue  = 0;
+enum
+{
+	red,
+	green,
+	blue,
+
+	soft_pwm_count
+};
+volatile uint8_t pwm[soft_pwm_count];
 
 void compare_irq()
 {
+	dbg_write( 1 );
+
 	uint8_t state = timer_counter();
-	led_red_write  ( state < red   );
-	led_green_write( state < green );
-	led_blue_write ( state < blue  );
+	led_red_write  ( state < pwm[red]   );
+	led_green_write( state < pwm[green] );
+	led_blue_write ( state < pwm[blue]  );
 	compare_set( state );
+
+	dbg_write( 0 );
 }
 
 uint8_t gamma( uint8_t value )
@@ -25,29 +35,30 @@ void update_levels()
 
 	if( state < 256 )
 	{
-		red   = gamma(255 - state);
-		green = gamma(state);
-		blue  = 0;
+		pwm[red]   = gamma(255 - state);
+		pwm[green] = gamma(state);
+		pwm[blue]  = 0;
 		return;
 	}
-
 	state -= 256;
+
 	if( state < 256 )
 	{
-		red   = 0;
-		green = gamma(255 - state);
-		blue  = gamma(state);
+		pwm[red]   = 0;
+		pwm[green] = gamma(255 - state);
+		pwm[blue]  = gamma(state);
 		return;
 	}
-
 	state -= 256;
+
 	if( state < 256 )
 	{
-		red   = gamma(state);
-		green = 0;
-		blue  = gamma(255 - state);
+		pwm[red]   = gamma(state);
+		pwm[green] = 0;
+		pwm[blue]  = gamma(255 - state);
 		return;
 	}
+	state -= 256;
 }
 
 int main(void)

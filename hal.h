@@ -15,9 +15,11 @@ enum
 \***********************************************************************/
 
 #include <drivers/avr/avr_gpio.h>
-AVR_GPIO_OUTPUT(led_red,   B,0,1, 0)
+AVR_GPIO_OUTPUT(led_red,   B,2,1, 0)
 AVR_GPIO_OUTPUT(led_green, B,1,1, 0)
-AVR_GPIO_OUTPUT(led_blue,  B,2,1, 0)
+AVR_GPIO_OUTPUT(led_blue,  B,0,1, 0)
+
+AVR_GPIO_OUTPUT(dbg,       B,3,1, 0)
 
 /***********************************************************************\
  * Timers                                                              *
