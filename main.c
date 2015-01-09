@@ -18,8 +18,7 @@ struct pwm_state_t
 	uint8_t delay;
 };
 struct pwm_state_t soft_pwm_fsm[soft_pwm_count];
-volatile uint8_t pwm_state;
-//volatile uint8_t pwm_back;
+uint8_t pwm_state;
 
 void pwm_apply()
 {
@@ -54,10 +53,16 @@ void pwm_apply()
 void timer_overflow_irq()
 {
 	compare_irq_clear();
+
+	uint8_t delay = soft_pwm_fsm[0].delay;
 	led_rgb_write( soft_pwm_fsm[0].mask );
-	if( soft_pwm_fsm[0].delay )
+
+	if( delay )
 	{
-		compare_set( soft_pwm_fsm[0].delay );
+		if( timer_counter() >= delay )
+			delay = timer_counter() + 1;
+
+		compare_set( delay );
 		pwm_state = 1;
 		compare_irq_enable();
 	}
@@ -69,10 +74,15 @@ void timer_overflow_irq()
 
 void compare_irq()
 {
+	uint8_t delay = soft_pwm_fsm[pwm_state].delay;
 	led_rgb_write( soft_pwm_fsm[pwm_state].mask );
-	if( soft_pwm_fsm[pwm_state].delay )
+
+	if( delay )
 	{
-		compare_set( soft_pwm_fsm[pwm_state].delay );
+		if( timer_counter() >= delay )
+			delay = timer_counter() + 1;
+
+		compare_set( delay );
 		++pwm_state;
 	}
 	else
