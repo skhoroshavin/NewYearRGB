@@ -17,115 +17,69 @@ struct pwm_state_t
 	uint8_t mask;
 	uint8_t delay;
 };
-volatile struct pwm_state_t soft_pwm_fsm[soft_pwm_count];
-
-#define find_min_value_index(data, size, value, index) \
-	do { \
-		uint8_t i; \
-		value = data[0]; \
-		index = 0; \
-		for( i = 0; i < size; ++i ) \
-		{ \
-			if( data[i] < value ) \
-			{ \
-				value = data[i]; \
-				index = i; \
-			} \
-		} \
-	} while(0)
-
-#define find_next_value_index(data, size, value, index) \
-	do { \
-		uint8_t i; \
-		for( i = index+1; i < size; ++i ) \
-		{ \
-			if( data[i] == value ) \
-			{ \
-				index = i; \
-				break; \
-			} \
-		} \
-		index = i; \
-	} while(0)
-
-#define find_next_min_value_index(data, size, value, index, prev_min) \
-	do { \
-		uint8_t i; \
-		for( i = 0; i < size; ++i ) \
-		{ \
-			if( data[i] > prev_min ) \
-			{ \
-				value = data[i]; \
-				index = i; \
-				break; \
-			} \
-		} \
-		for( i = index+1; i < size; ++i ) \
-		{ \
-			if( (data[i] > prev_min) && (data[i] < value) ) \
-			{ \
-				value = data[i]; \
-				index = i; \
-			} \
-		} \
-	} while(0)
+struct pwm_state_t soft_pwm_fsm[soft_pwm_count];
+volatile uint8_t pwm_state;
+//volatile uint8_t pwm_back;
 
 void pwm_apply()
 {
-	uint8_t mask = 0xff;
+	uint8_t i, ch, prev_delay;
+	uint8_t mask  = MASK(soft_pwm_count);
+	uint8_t delay = 0;
 
-	uint8_t delay, channel, i;
-	find_min_value_index( soft_pwm, soft_pwm_count, delay, channel );
-
-	irq_disable();
-	soft_pwm_fsm[0].mask = mask;
-	soft_pwm_fsm[0].delay = delay;
-	irq_enable();
-
-	for( i = 1; i < soft_pwm_count; ++i )
+	for( i = 0; i < soft_pwm_count; ++i )
 	{
-		mask &= ~(uint8_t)(1 << channel);
-
-		find_next_value_index( soft_pwm, soft_pwm_count, delay, channel );
-		if( channel == soft_pwm_count )
+		if( !mask )
 		{
-			uint8_t min_delay = delay;
-			find_next_min_value_index( soft_pwm, soft_pwm_count, delay, channel, min_delay );
+			soft_pwm_fsm[i].mask  = 0;
+			soft_pwm_fsm[i].delay = 0;
+			continue;
 		}
 
-		irq_disable();
-		soft_pwm_fsm[i].mask = mask;
-		soft_pwm_fsm[i].delay = delay;
-		irq_enable();
+		prev_delay = delay;
+		delay = -1;
+		for( ch = 0; ch < soft_pwm_count; ++ch )
+		{
+			uint8_t value = soft_pwm[ch];
+			if( value == prev_delay )
+				mask &= (uint8_t)~(1 << ch);
+			if( (value > prev_delay) && (value < delay) )
+				delay = value;
+		}
+		soft_pwm_fsm[i].mask  = mask;
+		soft_pwm_fsm[i].delay = mask ? delay : 0;
 	}
 }
 
-void pwm_update()
+void timer_overflow_irq()
 {
-	static uint8_t state = 0;
-
-	while( soft_pwm_fsm[state].delay <= timer_counter() )
+	compare_irq_clear();
+	led_rgb_write( soft_pwm_fsm[0].mask );
+	if( soft_pwm_fsm[0].delay )
 	{
-		++state;
-		if( state == soft_pwm_count )
-		{
-			state = 0;
-			led_rgb_write( 0 );
-			if( timer_counter() < 255 )
-			{
-				compare_set( -1 );
-				return;
-			}
-		}
+		compare_set( soft_pwm_fsm[0].delay );
+		pwm_state = 1;
+		compare_irq_enable();
 	}
-
-	led_rgb_write( soft_pwm_fsm[state].mask );
-	compare_set( soft_pwm_fsm[state].delay-1 );
+	else
+	{
+		compare_irq_disable();
+	}
 }
 
 void compare_irq()
 {
-	pwm_update();
+	led_rgb_write( soft_pwm_fsm[pwm_state].mask );
+	if( soft_pwm_fsm[pwm_state].delay )
+	{
+		compare_set( soft_pwm_fsm[pwm_state].delay );
+		++pwm_state;
+	}
+	else
+	{
+		compare_irq_disable();
+		compare_irq_clear();
+	}
 }
 
 void update_levels()
@@ -133,7 +87,7 @@ void update_levels()
 	static uint16_t last_state = 0;
 
 	uint8_t dec_i, inc_i, zer_i;
-	uint16_t state = soft_timer_counter() / 256;
+	uint16_t state = soft_timer_counter() / 64;
 	if( state == last_state ) return;
 	last_state = state;
 
@@ -145,8 +99,8 @@ void update_levels()
 	default: dec_i = inc_i = zer_i = 0; dbg_write(1);
 	}
 
-	soft_pwm[dec_i] = 251;//0xFF - (state & 0xFF);
-	soft_pwm[inc_i] = 0;//state & 0xFF;
+	soft_pwm[dec_i] = 0xFF - (state & 0xFF);
+	soft_pwm[inc_i] = state & 0xFF;
 	soft_pwm[zer_i] = 0;
 	pwm_apply();
 }
@@ -158,7 +112,7 @@ int main(void)
 	pwm_apply();
 
 	compare_set( 0 );
-	compare_irq_enable();
+	timer_overflow_irq_enable();
 	timer_start();
 	irq_enable();
 
