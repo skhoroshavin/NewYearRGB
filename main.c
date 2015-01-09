@@ -50,29 +50,7 @@ void pwm_apply()
 	}
 }
 
-void timer_overflow_irq()
-{
-	compare_irq_clear();
-
-	uint8_t delay = soft_pwm_fsm[0].delay;
-	led_rgb_write( soft_pwm_fsm[0].mask );
-
-	if( delay )
-	{
-		if( timer_counter() >= delay )
-			delay = timer_counter() + 1;
-
-		compare_set( delay );
-		pwm_state = 1;
-		compare_irq_enable();
-	}
-	else
-	{
-		compare_irq_disable();
-	}
-}
-
-void compare_irq()
+void pwm_update()
 {
 	uint8_t delay = soft_pwm_fsm[pwm_state].delay;
 	led_rgb_write( soft_pwm_fsm[pwm_state].mask );
@@ -88,8 +66,27 @@ void compare_irq()
 	else
 	{
 		compare_irq_disable();
-		compare_irq_clear();
 	}
+}
+
+void timer_overflow_irq()
+{
+	dbg_write(1);
+
+	pwm_state = 0;
+	compare_irq_clear();
+	compare_irq_enable();
+
+	pwm_update();
+
+	dbg_write(0);
+}
+
+void compare_irq()
+{
+	dbg_write( 1 );
+	pwm_update();
+	dbg_write( 0 );
 }
 
 void update_levels()
@@ -97,7 +94,7 @@ void update_levels()
 	static uint16_t last_state = 0;
 
 	uint8_t dec_i, inc_i, zer_i;
-	uint16_t state = soft_timer_counter() / 64;
+	uint16_t state = soft_timer_counter() / 1024;
 	if( state == last_state ) return;
 	last_state = state;
 

@@ -28,7 +28,7 @@ AVR_BASIC_TIMER(timer, 8)
 AVR_TIMER_COMPARE(compare, uint8_t, 0, A)
 
 #include <drivers/soft/soft_timer.h>
-SOFT_TIMER(soft_timer, timer, uint16_t, 128, (uint32_t)3*64*256)
+SOFT_TIMER(soft_timer, timer, uint32_t, 128, (uint32_t)3*256*1024)
 
 /***********************************************************************\
  * Functions                                                           *
