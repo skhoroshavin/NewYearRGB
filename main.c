@@ -10,7 +10,7 @@ enum
 	soft_pwm_count
 };
 
-uint8_t soft_pwm[soft_pwm_count] = { 8, 0, 0 };
+uint8_t soft_pwm[soft_pwm_count];
 
 struct pwm_state_t
 {
@@ -50,18 +50,21 @@ void pwm_apply()
 	}
 }
 
-void pwm_update()
+static void pwm_update()
 {
-	uint8_t delay = soft_pwm_fsm[pwm_state].delay;
 	led_rgb_write( soft_pwm_fsm[pwm_state].mask );
+	uint8_t delay = soft_pwm_fsm[pwm_state].delay;
 
 	if( delay )
 	{
-		if( timer_counter() >= delay )
-			delay = timer_counter() + 1;
-
-		compare_set( delay );
 		++pwm_state;
+
+		if( timer_counter() >= delay )
+			pwm_update();
+		else
+			compare_set( delay );
+
+		compare_irq_enable();
 	}
 	else
 	{
@@ -75,8 +78,6 @@ void timer_overflow_irq()
 
 	pwm_state = 0;
 	compare_irq_clear();
-	compare_irq_enable();
-
 	pwm_update();
 
 	dbg_write(0);
@@ -94,7 +95,7 @@ void update_levels()
 	static uint16_t last_state = 0;
 
 	uint8_t dec_i, inc_i, zer_i;
-	uint16_t state = soft_timer_counter() / 1024;
+	uint16_t state = soft_timer_counter() / 64;
 	if( state == last_state ) return;
 	last_state = state;
 

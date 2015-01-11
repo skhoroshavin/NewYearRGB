@@ -13,7 +13,6 @@ void hal_init()
 	CLKPR = 0x00;
 
 	led_rgb_init();
-
 	dbg_init();
 
 	soft_timer_init();

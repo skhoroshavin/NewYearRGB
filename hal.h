@@ -16,7 +16,6 @@ enum
 
 #include <drivers/avr/avr_gpio.h>
 AVR_GPIO_OUTPUT(led_rgb,   B,0,3, 0)
-
 AVR_GPIO_OUTPUT(dbg,       B,3,1, 0)
 
 /***********************************************************************\
@@ -24,11 +23,11 @@ AVR_GPIO_OUTPUT(dbg,       B,3,1, 0)
 \***********************************************************************/
 
 #include <drivers/avr/avr_timer.h>
-AVR_BASIC_TIMER(timer, 8)
+AVR_BASIC_TIMER(timer, 64)
 AVR_TIMER_COMPARE(compare, uint8_t, 0, A)
 
 #include <drivers/soft/soft_timer.h>
-SOFT_TIMER(soft_timer, timer, uint32_t, 128, (uint32_t)3*256*1024)
+SOFT_TIMER(soft_timer, timer, uint16_t, 128, 3u*64*256)
 
 /***********************************************************************\
  * Functions                                                           *
